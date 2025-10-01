@@ -16,7 +16,7 @@ except ImportError:
 
 
 @keras_export(["keras.saving.save_model", "keras.models.save_model"])
-def save_model(model, filepath, overwrite=True, zipped=True, **kwargs):
+def save_model(model, filepath, overwrite=True, **kwargs):
     """Saves a model as a `.keras` file.
 
     Args:
@@ -24,8 +24,6 @@ def save_model(model, filepath, overwrite=True, zipped=True, **kwargs):
         filepath: `str` or `pathlib.Path` object. Path where to save the model.
         overwrite: Whether we should overwrite any existing model at the target
             location, or instead ask the user via an interactive prompt.
-        zipped: Whether to save the model as a zipped `.keras`
-            archive (default), or as an unzipped directory.
 
     Example:
 
@@ -44,7 +42,7 @@ def save_model(model, filepath, overwrite=True, zipped=True, **kwargs):
 
     Note that `model.save()` is an alias for `keras.saving.save_model()`.
 
-    The saved `.keras` file is a `zip` archive that contains:
+    The saved `.keras` file contains:
 
     - The model's configuration (architecture)
     - The model's weights
@@ -98,22 +96,21 @@ def save_model(model, filepath, overwrite=True, zipped=True, **kwargs):
         if not proceed:
             return
 
-    if zipped and str(filepath).endswith(".keras"):
-        return saving_lib.save_model(model, filepath)
-    if not zipped:
-        return saving_lib.save_model(model, filepath, zipped=False)
-    if str(filepath).endswith((".h5", ".hdf5")):
-        return legacy_h5_format.save_model_to_hdf5(
+    if str(filepath).endswith(".keras"):
+        saving_lib.save_model(model, filepath)
+    elif str(filepath).endswith((".h5", ".hdf5")):
+        legacy_h5_format.save_model_to_hdf5(
             model, filepath, overwrite, include_optimizer
         )
-    raise ValueError(
-        "Invalid filepath extension for saving. "
-        "Please add either a `.keras` extension for the native Keras "
-        f"format (recommended) or a `.h5` extension. "
-        "Use `model.export(filepath)` if you want to export a SavedModel "
-        "for use with TFLite/TFServing/etc. "
-        f"Received: filepath={filepath}."
-    )
+    else:
+        raise ValueError(
+            "Invalid filepath extension for saving. "
+            "Please add either a `.keras` extension for the native Keras "
+            f"format (recommended) or a `.h5` extension. "
+            "Use `model.export(filepath)` if you want to export a SavedModel "
+            "for use with TFLite/TFServing/etc. "
+            f"Received: filepath={filepath}."
+        )
 
 
 @keras_export(["keras.saving.load_model", "keras.models.load_model"])
@@ -156,9 +153,6 @@ def load_model(filepath, custom_objects=None, compile=True, safe_mode=True):
     is_keras_zip = str(filepath).endswith(".keras") and zipfile.is_zipfile(
         filepath
     )
-    is_keras_dir = file_utils.isdir(filepath) and file_utils.exists(
-        file_utils.join(filepath, "config.json")
-    )
 
     # Support for remote zip files
     if (
@@ -166,7 +160,7 @@ def load_model(filepath, custom_objects=None, compile=True, safe_mode=True):
         and not file_utils.isdir(filepath)
         and not is_keras_zip
     ):
-        local_path = file_utils.join(
+        local_path = os.path.join(
             saving_lib.get_temp_dir(), os.path.basename(filepath)
         )
 
@@ -178,7 +172,7 @@ def load_model(filepath, custom_objects=None, compile=True, safe_mode=True):
             filepath = local_path
             is_keras_zip = True
 
-    if is_keras_zip or is_keras_dir:
+    if is_keras_zip:
         return saving_lib.load_model(
             filepath,
             custom_objects=custom_objects,
